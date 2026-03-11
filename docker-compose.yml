@@ -1,0 +1,120 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: interviewflow-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin123}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-interviewflow}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - interviewflow-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: interviewflow-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - interviewflow-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: interviewflow-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - interviewflow-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.2
+    container_name: interviewflow-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - interviewflow-network
+
+  api:
+    profiles: ["app"]
+    image: node:20-alpine
+    container_name: interviewflow-api
+    working_dir: /workspace
+    command: ["sh", "-c", "echo 'API container placeholder. Add Dockerfile in apps/api when app logic starts.' && tail -f /dev/null"]
+    env_file:
+      - ./apps/api/.env.example
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+      - elasticsearch
+    networks:
+      - interviewflow-network
+
+  admin:
+    profiles: ["app"]
+    image: node:20-alpine
+    container_name: interviewflow-admin
+    working_dir: /workspace
+    command: ["sh", "-c", "echo 'Admin container placeholder. Add Dockerfile in apps/admin when UI setup begins.' && tail -f /dev/null"]
+    env_file:
+      - ./apps/admin/.env.example
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - api
+    networks:
+      - interviewflow-network
+
+  worker:
+    profiles: ["app"]
+    image: node:20-alpine
+    container_name: interviewflow-worker
+    working_dir: /workspace
+    command: ["sh", "-c", "echo 'Worker container placeholder. Add Dockerfile in apps/worker when job logic starts.' && tail -f /dev/null"]
+    env_file:
+      - ./apps/worker/.env.example
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+      - elasticsearch
+    networks:
+      - interviewflow-network
+
+networks:
+  interviewflow-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+  elasticsearch_data:
